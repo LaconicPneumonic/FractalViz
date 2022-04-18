@@ -1,12 +1,13 @@
 <template>
-  <div class="canvas">
-    <div v-for="l in this.leaves" :key="l.key" :style="datumStyle(l.data)">
-      <!-- {{ datumStyle(l.data) }} -->
-    </div>
+  <div>
+    <div><input v-model.number="depth" /></div>
+    <div id="stage" />
   </div>
 </template>
 
 <script lang="ts">
+import * as Two from "two.js";
+
 import { defineComponent } from "vue";
 import { IFS, SquareDatum, TreeNode } from "./lib/ifs";
 
@@ -15,34 +16,18 @@ export default defineComponent({
     return {
       root: new TreeNode(new SquareDatum(0, 0, window.innerHeight), "root"),
 
+      two: new Two.default({
+        type: Two.default.Types.canvas,
+        width: window.innerHeight,
+        height: window.innerHeight,
+      }),
+
+      clicked: undefined as TreeNode<SquareDatum> | undefined,
       depth: 3,
     };
   },
 
   methods: {
-    datumStyle(datum: SquareDatum): {
-      border: string;
-      position: string;
-      width: string;
-      height: string;
-      left: string;
-      top: string;
-      background: string;
-    } {
-      const ret = {
-        border: "solid",
-        position: "absolute",
-        width: datum.w + "px",
-        height: datum.w + "px",
-        left: datum.x + "px",
-        top: datum.y + "px",
-        background: "#000000",
-        // "border-color": "#FFFFFF",
-      };
-
-      return ret;
-    },
-
     generate(
       root: TreeNode<SquareDatum>,
       fractalFunction: (
@@ -65,9 +50,40 @@ export default defineComponent({
     },
   },
 
+  watch: {
+    leaves(newLeaves: Array<TreeNode<SquareDatum>>): void {
+      this.two.clear();
+
+      newLeaves.forEach((v) => {
+        const square = this.two.makeRectangle(
+          v.data.x,
+          v.data.y,
+          v.data.w,
+          v.data.w
+        );
+        square.fill = "#FFF000";
+      });
+
+      this.two.update();
+    },
+  },
+
   computed: {
+    highlights(): Array<TreeNode<SquareDatum>> {
+      const ret: Array<TreeNode<SquareDatum>> = [];
+
+      let next: TreeNode<SquareDatum> | undefined = this.clicked;
+
+      while (next != undefined) {
+        ret.push(next);
+
+        next = next.parent;
+      }
+
+      return ret;
+    },
     leaves: function (): Array<TreeNode<SquareDatum>> {
-      return IFS.generate(
+      const val = IFS.generate(
         this.root,
         (t) => {
           const translateIncrement = 1 / 3;
@@ -95,28 +111,22 @@ export default defineComponent({
         },
         this.depth
       );
+
+      return val;
     },
+  },
+
+  mounted: function (): void {
+    const canvas = document.getElementById("stage") as Element;
+    this.two.appendTo(canvas);
+
+    // this.two.appendTo(document.body);
   },
 });
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
-<style >
-h3 {
-  margin: 40px 0 0;
-}
-ul {
-  list-style-type: none;
-  padding: 0;
-}
-li {
-  display: inline-block;
-  margin: 0 10px;
-}
-a {
-  color: #42b983;
-}
-
+<style>
 body {
   background-color: white;
 }
